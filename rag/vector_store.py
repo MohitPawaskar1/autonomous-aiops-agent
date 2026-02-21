@@ -1,49 +1,51 @@
 import os
 import pickle
-import numpy as np
 import faiss
+import numpy as np
 from sentence_transformers import SentenceTransformer
 
-INDEX_PATH = "rag/faiss.index"
-MEMORY_PATH = "rag/memory.pkl"
+INDEX_FILE = "rag/faiss_index.bin"
+META_FILE = "rag/metadata.pkl"
 
 model = SentenceTransformer("all-MiniLM-L6-v2")
+
 dimension = 384
 
-
-# Load existing index if exists
-if os.path.exists(INDEX_PATH):
-    index = faiss.read_index(INDEX_PATH)
+if os.path.exists(INDEX_FILE):
+    index = faiss.read_index(INDEX_FILE)
 else:
     index = faiss.IndexFlatL2(dimension)
 
-# Load memory
-if os.path.exists(MEMORY_PATH):
-    with open(MEMORY_PATH, "rb") as f:
-        memory = pickle.load(f)
+if os.path.exists(META_FILE):
+    with open(META_FILE, "rb") as f:
+        metadata = pickle.load(f)
 else:
-    memory = []
+    metadata = []
 
 
-def save_memory():
-    faiss.write_index(index, INDEX_PATH)
-    with open(MEMORY_PATH, "wb") as f:
-        pickle.dump(memory, f)
+def save_index():
+    faiss.write_index(index, INDEX_FILE)
+    with open(META_FILE, "wb") as f:
+        pickle.dump(metadata, f)
 
 
-def add_to_vector_store(text):
+def add_text(text, meta):
     embedding = model.encode([text])
     index.add(np.array(embedding).astype("float32"))
-    memory.append(text)
-    save_memory()
+    metadata.append(meta)
+    save_index()
 
 
-def search_vector_store(query, top_k=2):
-    if len(memory) == 0:
-        return "No past incidents found."
+def search_text(query, top_k=1):
+    if index.ntotal == 0:
+        return []
 
-    query_embedding = model.encode([query])
-    distances, indices = index.search(np.array(query_embedding).astype("float32"), top_k)
+    embedding = model.encode([query])
+    D, I = index.search(np.array(embedding).astype("float32"), top_k)
 
-    results = [memory[i] for i in indices[0] if i < len(memory)]
+    results = []
+    for idx in I[0]:
+        if idx < len(metadata):
+            results.append(metadata[idx])
+
     return results
