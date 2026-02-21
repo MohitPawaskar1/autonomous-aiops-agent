@@ -1,0 +1,7 @@
+INFO Service started successfully
+INFO Connected to database
+WARNING High memory usage detected
+ERROR Database connection timeout
+INFO Retrying connection
+ERROR Service crashed unexpectedly
+INFO Restarting service
